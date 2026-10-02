@@ -1,0 +1,5 @@
+/*
+ * Local compatibility stylesheet for the WordPress Kirki export.
+ * The original dynamic endpoint returned an HTML page and was rejected by
+ * browsers. Theme styling is already bundled in the exported local CSS files.
+ */

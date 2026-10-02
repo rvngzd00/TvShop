@@ -1,0 +1,19 @@
+{
+  "name": "daily-baku-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node tools/serve.mjs",
+    "start": "node tools/serve.mjs",
+    "prepare:brand": "node tools/prepare-brand-assets.mjs",
+    "demo:products": "node tools/inject-demo-products.mjs",
+    "prepare:frontend": "node tools/prepare-brand-assets.mjs && node tools/localize-home6.mjs && node tools/inject-demo-products.mjs && node tools/rewrite-links.mjs",
+    "routes:rewrite": "node tools/rewrite-links.mjs",
+    "test:routes": "node tools/route-audit.mjs",
+    "test": "node tools/audit.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

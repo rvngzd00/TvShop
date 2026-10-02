@@ -1,0 +1,33 @@
+.login-brand-logo {
+  display: block;
+  width: min(240px, 100%);
+  aspect-ratio: 240 / 74;
+  height: 74px;
+  margin-bottom: 28px;
+  padding: 7px 9px;
+  object-fit: cover;
+  object-position: center 55%;
+  background: #090909;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.sidebar .brand {
+  display: block;
+  padding: 0 10px 22px;
+}
+
+.sidebar .brand img {
+  display: block;
+  width: 190px;
+  aspect-ratio: 190 / 59;
+  height: 59px;
+  padding: 5px 7px;
+  object-fit: cover;
+  object-position: center 55%;
+  background: #090909;
+  border-radius: 7px;
+}
+
+:root{--ink:#171b24;--muted:#737986;--paper:#f4f6fb;--line:#e0e4ec;--green:#044bd9;--green2:#e8efff;--shadow:0 12px 35px rgba(24,48,110,.08)}
+.sidebar{background:#0c1735;color:#e3e9fb}.nav-section{color:#7180a9}.nav-link{color:#b9c3df}.nav-link:hover,.nav-link.active{background:#17306e}.user-card{border-top-color:#253967}.user-card .avatar{color:#044bd9;background:#e8efff}.login-shell{background:radial-gradient(circle at 20% 20%,#dce7ff,transparent 35%),linear-gradient(135deg,#f7f8fc,#e9eef9)}

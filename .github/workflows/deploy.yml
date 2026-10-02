@@ -1,0 +1,146 @@
+name: Deploy Daily Baku
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload files to VPS
+        run: |
+          rsync -az --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='node_modules' \
+            --exclude='backend/uploads' \
+            --exclude='uploads' \
+            --exclude='docker-compose.vps.yml' \
+            --exclude='docker-compose.vps.yml.before-bluegreen' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            ./ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_PATH }}/"
+
+      - name: Blue-green deploy
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOF'
+          set -e
+
+          cd /var/www/dailybaku/app
+
+          NGINX_FILE=$(readlink -f /etc/nginx/sites-enabled/gundelikbaki.az)
+
+          echo "Detecting current LIVE slot..."
+
+          if sudo grep -q 'proxy_pass http://127.0.0.1:3001;' "$NGINX_FILE"; then
+            LIVE_PORT=3001
+            CANDIDATE_PORT=3002
+            CANDIDATE_SERVICE=app_green
+          elif sudo grep -q 'proxy_pass http://127.0.0.1:3002;' "$NGINX_FILE"; then
+            LIVE_PORT=3002
+            CANDIDATE_PORT=3001
+            CANDIDATE_SERVICE=app
+          else
+            echo "ERROR: Cannot determine current Daily Baku LIVE port."
+            exit 1
+          fi
+
+          echo "LIVE port: $LIVE_PORT"
+          echo "Candidate port: $CANDIDATE_PORT"
+          echo "Candidate service: $CANDIDATE_SERVICE"
+
+          echo "Creating pre-deploy database backup..."
+          mkdir -p /home/ubuntu/backups/deploy
+
+          docker exec app-postgres-1 \
+            pg_dump -U dailybaku -d dailybaku -Fc \
+            > "/home/ubuntu/backups/deploy/dailybaku-$(date +%Y%m%d-%H%M%S).dump"
+
+          echo "Building candidate without touching LIVE..."
+
+          docker compose -f docker-compose.vps.yml --env-file .env \
+            up -d --build --no-deps "$CANDIDATE_SERVICE"
+
+          echo "Waiting for candidate to become ready..."
+
+          READY=0
+
+          for i in $(seq 1 40); do
+            if curl -fsS "http://127.0.0.1:${CANDIDATE_PORT}/api/v1/ready" >/dev/null; then
+              READY=1
+              echo "Candidate is ready."
+              break
+            fi
+
+            echo "Attempt $i/40..."
+            sleep 3
+          done
+
+          if [ "$READY" -ne 1 ]; then
+            echo "ERROR: Candidate failed health check."
+            echo "LIVE site remains on port $LIVE_PORT."
+
+            docker compose -f docker-compose.vps.yml \
+              logs "$CANDIDATE_SERVICE" --tail=150 || true
+
+            exit 1
+          fi
+
+          echo "Candidate healthy. Switching Nginx..."
+
+          sudo sed -i \
+            "s#proxy_pass http://127.0.0.1:${LIVE_PORT};#proxy_pass http://127.0.0.1:${CANDIDATE_PORT};#" \
+            "$NGINX_FILE"
+
+          if ! sudo nginx -t; then
+            echo "ERROR: Nginx config invalid. Restoring LIVE port."
+
+            sudo sed -i \
+              "s#proxy_pass http://127.0.0.1:${CANDIDATE_PORT};#proxy_pass http://127.0.0.1:${LIVE_PORT};#" \
+              "$NGINX_FILE"
+
+            exit 1
+          fi
+
+          sudo systemctl reload nginx
+
+          echo "Checking public site after switch..."
+
+          if ! curl -fsS --resolve gundelikbaki.az:443:127.0.0.1 \
+            https://gundelikbaki.az/api/v1/ready >/dev/null; then
+
+            echo "ERROR: New LIVE version failed after Nginx switch."
+            echo "Rolling Nginx back to port $LIVE_PORT..."
+
+            sudo sed -i \
+              "s#proxy_pass http://127.0.0.1:${CANDIDATE_PORT};#proxy_pass http://127.0.0.1:${LIVE_PORT};#" \
+              "$NGINX_FILE"
+
+            sudo nginx -t
+            sudo systemctl reload nginx
+
+            exit 1
+          fi
+
+          echo "================================="
+          echo "DEPLOY SUCCESS"
+          echo "New LIVE port: $CANDIDATE_PORT"
+          echo "Old version remains on: $LIVE_PORT"
+          echo "================================="
+
+          docker compose -f docker-compose.vps.yml --env-file .env ps
+          EOF

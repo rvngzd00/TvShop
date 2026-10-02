@@ -1,0 +1,17 @@
+{
+  "name": "TVShop",
+  "short_name": "TVShop",
+  "description": "Məhsulları video ilə kəşf etmək və təhlükəsiz alış-veriş etmək üçün TVShop platforması.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#044bd9",
+  "icons": [
+    {
+      "src": "/assets/brand/tvshop.webp",
+      "sizes": "1400x933",
+      "type": "image/webp",
+      "purpose": "any"
+    }
+  ]
+}

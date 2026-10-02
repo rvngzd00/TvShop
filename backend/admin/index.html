@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="az">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>TVShop — İdarəetmə paneli</title>
+  <link rel="icon" type="image/webp" href="/assets/brand/tvshop.webp">
+  <link rel="apple-touch-icon" href="/assets/brand/tvshop.webp">
+  <link rel="stylesheet" href="/admin/admin.css">
+  <link rel="stylesheet" href="/assets/css/admin-brand.css">
+</head>
+<body>
+  <section class="login-shell" id="loginView" hidden>
+    <div class="login-card">
+      <img class="login-brand-logo" src="/assets/brand/tvshop.webp" width="1400" height="933" alt="TVShop">
+      <p class="eyebrow">TVSHOP CMS</p>
+      <h1>İdarəetmə paneli</h1>
+      <p class="muted">Kontent, satış və kampaniyaları bir mərkəzdən idarə edin.</p>
+      <form id="loginForm">
+        <label>E-poçt<input type="email" name="email" autocomplete="username" required></label>
+        <label>Şifrə<input type="password" name="password" autocomplete="current-password" minlength="8" required></label>
+        <button class="primary" type="submit">Daxil ol</button>
+        <p class="form-error" id="loginError" role="alert"></p>
+      </form>
+    </div>
+  </section>
+
+  <div class="app-shell" id="appView" hidden>
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#dashboard" aria-label="TVShop idarəetmə paneli"><img src="/assets/brand/tvshop.webp" width="1400" height="933" alt="TVShop"></a>
+      <nav id="navigation" aria-label="Əsas idarəetmə menyusu"></nav>
+      <div class="user-card"><div class="avatar" id="avatar">TV</div><div><strong id="userName"></strong><small id="userRole"></small></div><button id="logoutButton" title="Çıxış">↗</button></div>
+    </aside>
+    <main class="workspace">
+      <header class="topbar"><button class="menu-button" id="menuButton" aria-label="Menyunu aç">☰</button><div><p class="eyebrow" id="pageEyebrow">TVSHOP</p><h1 id="pageTitle">İcmal</h1></div><div class="top-actions"><span class="status-dot">Sistem aktivdir</span><button class="icon-button notification-button" id="notificationButton" title="Bildirişlər" aria-label="Bildirişlər" aria-expanded="false">◌<span id="notificationCount" hidden>0</span></button></div></header>
+      <div class="content" id="content"><div class="loader">Məlumatlar yüklənir…</div></div>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <dialog id="createDialog">
+    <form id="createForm" method="dialog">
+      <div class="dialog-head"><div><p class="eyebrow">YENİ QEYD</p><h2 id="dialogTitle">Əlavə et</h2></div><button type="button" class="icon-button" id="closeDialog" aria-label="Bağla">×</button></div>
+      <div class="form-grid" id="formFields"></div>
+      <p class="form-error" id="createError" role="alert"></p>
+      <div class="dialog-actions"><button type="button" class="secondary" id="cancelDialog">Ləğv et</button><button type="submit" class="primary">Yadda saxla</button></div>
+    </form>
+  </dialog>
+  <script type="module" src="/admin/admin.js?v=20260821-1"></script>
+</body>
+</html>
