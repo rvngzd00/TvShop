@@ -34,7 +34,6 @@ jobs:
             --exclude='.env.*' \
             --exclude='node_modules' \
             --exclude='backend/uploads' \
-            --exclude='uploads' \
             --exclude='compose.yml' \
             --exclude='docker-compose.vps.yml' \
             --exclude='docker-compose.vps.yml.*' \
