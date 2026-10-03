@@ -6,11 +6,11 @@ göndərir. E-poçt açarları yalnız backend mühitində saxlanılmalıdır.
 
 ## 1. Göndərən domeni təsdiqləyin
 
-1. Resend hesabında `gundelikbaki.az` domenini əlavə edin.
+1. Resend hesabında `tvshop.az` domenini əlavə edin.
 2. Resend panelinin verdiyi DKIM və SPF DNS qeydlərini domenin DNS panelinə
    olduğu kimi daxil edin.
 3. Domen statusu `Verified` olana qədər gözləyin.
-4. Çatdırılma keyfiyyəti üçün `_dmarc.gundelikbaki.az` ünvanında əvvəlcə hesabat
+4. Çatdırılma keyfiyyəti üçün `_dmarc.tvshop.az` ünvanında əvvəlcə hesabat
    rejimli DMARC qeydi yaradın; real trafik yoxlandıqdan sonra siyasəti
    sərtləşdirin.
 
@@ -23,11 +23,11 @@ Deployment platformasının secret/environment bölməsinə bunları əlavə edi
 
 ```dotenv
 NODE_ENV=production
-PUBLIC_ORIGIN=https://gundelikbaki.az
+PUBLIC_ORIGIN=https://tvshop.az
 EMAIL_PROVIDER=resend
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxxx
-EMAIL_FROM=TVShop <noreply@gundelikbaki.az>
-EMAIL_REPLY_TO=support@gundelikbaki.az
+EMAIL_FROM=TVShop <noreply@tvshop.az>
+EMAIL_REPLY_TO=support@tvshop.az
 EMAIL_TIMEOUT_MS=10000
 ```
 
@@ -37,8 +37,10 @@ EMAIL_TIMEOUT_MS=10000
   yaradılır.
 - Secret-i `.env.example`, frontend JavaScript-i və ya git tarixçəsinə yazmayın.
 
-Production rejimində provider və ya API açarı yoxdursa backend qəsdən start
-olmur. Bu, səssiz şəkildə e-poçtsuz işləyən deployment-in qarşısını alır.
+E-poçt göndərilməsi tələb olunmayan deployment üçün `EMAIL_PROVIDER=disabled`
+seçin və `RESEND_API_KEY`-i boş saxlayın. Bu rejimdə backend işləyir, məktublar
+şəbəkəyə göndərilmir və delivery nəticəsi `accepted: false` olur. Provider
+`resend` olduqda isə `RESEND_API_KEY` məcburidir və açarsız backend start olmur.
 
 ## 3. Migration və restart
 
@@ -67,8 +69,9 @@ Test üçün real, nəzarət etdiyiniz e-poçt ünvanından istifadə edin:
 
 Development rejimində `EMAIL_PROVIDER=disabled` olduqda internetə real məktub
 göndərilmir. Məktublar avtomatik test outbox-ına yazılır və inteqrasiya testləri
-şablonların yarandığını yoxlayır. Real lokal göndəriş üçün development `.env`
-faylında da `EMAIL_PROVIDER=resend` və test API açarı istifadə edilə bilər.
+şablonların yarandığını yoxlayır. Production-da eyni provider təhlükəsiz no-op
+kimi işləyir. Real lokal göndəriş üçün development `.env` faylında da
+`EMAIL_PROVIDER=resend` və test API açarı istifadə edilə bilər.
 
 ## 5. Giriş kilidinin idarəsi
 

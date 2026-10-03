@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import test, { after } from 'node:test';
 
 process.env['LOG_LEVEL'] ||= 'silent';
-process.env['ALLOWED_ORIGINS'] ||= 'https://www.gundelikbaki.az';
+process.env['DEFAULT_STORE_CODE'] = 'daily-baku';
+process.env['ALLOWED_ORIGINS'] ||= 'https://www.tvshop.az';
 
 after(async () => {
   const { closePool } = await import('./db/pool.js');
@@ -35,11 +36,11 @@ test('admin və statik frontend faylları ümumi API rate limitinə düşmür', 
     const acceptedWwwOrigin = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/forgot-password',
-      headers: { origin: 'https://www.gundelikbaki.az' },
+      headers: { origin: 'https://www.tvshop.az' },
       payload: { email: 'origin-check@example.test' }
     });
     assert.equal(acceptedWwwOrigin.statusCode, 200);
-    assert.equal(acceptedWwwOrigin.headers['access-control-allow-origin'], 'https://www.gundelikbaki.az');
+    assert.equal(acceptedWwwOrigin.headers['access-control-allow-origin'], 'https://www.tvshop.az');
 
     const rejectedOrigin = await app.inject({
       method: 'POST',
@@ -110,6 +111,9 @@ test('public web səhifələri HTML və canonical metadata ilə render olunur', 
 
     const homeApi = await app.inject({ method: 'GET', url: '/api/v1/public/home' });
     assert.equal(homeApi.statusCode, 200);
+    const readiness = await app.inject({ method: 'GET', url: '/api/v1/ready' });
+    assert.equal(readiness.statusCode, 200);
+    assert.deepEqual(readiness.json(), { status: 'ready', store: 'daily-baku' });
     assert.ok(Array.isArray(homeApi.json().data.products));
     assert.ok(Array.isArray(homeApi.json().data.categories));
     assert.ok(Array.isArray(homeApi.json().data.brands));

@@ -2,11 +2,11 @@
 
 ## Buraxılış
 
-1. `.env.example` əsasında serverdə `.env` yaradın. JWT, cookie, PostgreSQL və bootstrap admin şifrələri bir-birindən fərqli, minimum 32 bayt təsadüfi dəyərlər olmalıdır.
-2. Production TVShop domenini `PUBLIC_ORIGIN`, `ALLOWED_ORIGINS` və `DOMAIN` dəyişənlərində təyin edin. Docker PostgreSQL üçün `DATABASE_SSL=disable`, xarici managed PostgreSQL üçün `DATABASE_SSL=require` seçin.
-3. `docker compose up -d --build` başladın. Konteyner hər startda checksum-lı, dəyişdirilməz migrasiyaları tətbiq edir və sistem rollarını idempotent seed edir.
-4. `/api/v1/ready`, `/documentation`, `/admin/`, əsas səhifə və sitemap-ı yoxlayın.
-5. İlk girişdən dərhal sonra bootstrap şifrəsini dəyişin və seed şifrəsini secret manager-dən rotasiya edin.
+1. `/var/www/tvshop/app/.env` faylını serverdə ayrıca saxlayın. JWT, cookie, PostgreSQL və bootstrap admin şifrələri bir-birindən fərqli, minimum 32 bayt təsadüfi dəyərlər olmalıdır.
+2. `PUBLIC_ORIGIN=https://tvshop.az` və uyğun `ALLOWED_ORIGINS` dəyərini təyin edin. Docker PostgreSQL üçün `DATABASE_SSL=disable`, xarici managed PostgreSQL üçün `DATABASE_SSL=require` seçin.
+3. VPS-də yalnız `docker compose -p tvshop -f docker-compose.vps.yml --env-file .env ...` formasından istifadə edin. Nginx hostdakı `tvshop.az` konfiqurasiyası ilə localhost blue/green portlarına proxy edir.
+4. Konteyner startı yalnız checksum-lı migrasiyaları tətbiq edir və serveri başladır. Production startup heç vaxt demo və ya bootstrap seed işə salmır.
+5. `/api/v1/ready`, `/documentation`, `/admin/`, əsas səhifə və sitemap-ı yoxlayın.
 
 ## TV və media konfiqurasiyası
 
@@ -24,7 +24,7 @@
 
 ## Monitorinq
 
-- `/api/v1/health` proses, `/api/v1/ready` verilənlər bazası hazırlığını göstərir.
+- `/api/v1/health` prosesi, `/api/v1/ready` isə verilənlər bazası ilə yanaşı aktiv əsas mağaza qeydini yoxlayır.
 - JSON loglarda `requestId` saxlanır; auth header, cookie və şifrələr redaktə olunur.
 - 5xx faizi, login bloklanmaları, outbox backlog, aşağı stok, uğursuz ödəniş və QR sui-istifadə limiti üçün alert qurulmalıdır.
 - DB yalnız private şəbəkədə qalır; internetə port açılmır.

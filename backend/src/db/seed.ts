@@ -337,16 +337,16 @@ async function seed(): Promise<void> {
   await withTransaction(async (client) => {
     const storeResult = await client.query<{ id: string }>(`
       INSERT INTO stores (code, name, primary_domain, settings)
-      VALUES ($1, 'TVShop', 'gundelikbaki.az', $2)
+      VALUES ($1, 'TVShop', 'tvshop.az', $2)
       ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name,primary_domain=EXCLUDED.primary_domain,settings=EXCLUDED.settings || stores.settings
       RETURNING id
     `, [env.DEFAULT_STORE_CODE, JSON.stringify({
       demo: true,
-      supportEmail: 'destek@gundelikbaki.az',
+      supportEmail: 'support@tvshop.az',
       supportPhone: '+994 50 264 54 00',
       businessHours: 'Bazar ertəsi–Şənbə, 09:00–19:00',
       shipping: { city: 'Bakı', sameDayMinimum: 100 },
-      social: { instagram: '@gundelikbaki', facebook: 'gundelikbaki' }
+      social: { instagram: '@tvshop.az', facebook: 'tvshop.az' }
     })]);
     const storeId = storeResult.rows[0]!.id;
 

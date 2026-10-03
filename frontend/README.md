@@ -14,7 +14,9 @@ npm test
 ```
 
 The local server listens on `http://127.0.0.1:4173` by default. Set `PORT` to use
-another port.
+another port. API requests are proxied to the real backend at
+`http://127.0.0.1:3000`; set `API_ORIGIN` when the backend uses a different
+origin. The frontend server does not mock the home response.
 
 ## Node.js CMS integration contract
 

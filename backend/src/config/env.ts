@@ -31,12 +31,14 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   UPLOAD_DIR: z.string().default('./uploads'),
   MAX_UPLOAD_BYTES: z.coerce.number().int().min(1024).max(50 * 1024 * 1024).default(10 * 1024 * 1024),
+  // This is a stable internal tenant key used by existing records and sessions.
+  // Branding, domain and infrastructure are TVShop-specific.
   DEFAULT_STORE_CODE: z.string().regex(/^[a-z0-9-]+$/).default('daily-baku'),
-  BOOTSTRAP_ADMIN_EMAIL: z.email().default('admin@gundelikbaki.az'),
+  BOOTSTRAP_ADMIN_EMAIL: z.email().default('admin@tvshop.az'),
   BOOTSTRAP_ADMIN_PASSWORD: z.string().min(12).default('change-this-immediately'),
   EMAIL_PROVIDER: z.enum(['disabled', 'resend']).default('disabled'),
   RESEND_API_KEY: z.string().trim().optional(),
-  EMAIL_FROM: z.string().trim().default('TVShop <noreply@gundelikbaki.az>'),
+  EMAIL_FROM: z.string().trim().default('TVShop <noreply@tvshop.az>'),
   EMAIL_REPLY_TO: z.email().optional(),
   EMAIL_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30_000).default(10_000),
   YOUTUBE_API_KEY: z.string().trim().optional(),
@@ -62,10 +64,7 @@ if (parsed.data.NODE_ENV === 'production') {
   if (!parsed.data.PUBLIC_ORIGIN.startsWith('https://')) {
     throw new Error('PUBLIC_ORIGIN must use HTTPS in production');
   }
-  if (parsed.data.EMAIL_PROVIDER === 'disabled') {
-    throw new Error('EMAIL_PROVIDER must be configured in production');
-  }
-  if (!parsed.data.RESEND_API_KEY) {
+  if (parsed.data.EMAIL_PROVIDER === 'resend' && !parsed.data.RESEND_API_KEY) {
     throw new Error('RESEND_API_KEY is required when EMAIL_PROVIDER=resend');
   }
 }

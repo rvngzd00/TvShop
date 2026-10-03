@@ -42,10 +42,7 @@ export function clearDevelopmentEmailOutbox(): void {
 
 export async function sendEmail(message: EmailMessage): Promise<EmailDelivery> {
   if (env.EMAIL_PROVIDER === 'disabled') {
-    if (env.NODE_ENV === 'production') {
-      throw new AppError(503, 'EMAIL_NOT_CONFIGURED', 'E-poçt xidməti müvəqqəti əlçatan deyil');
-    }
-    developmentOutbox.push(structuredClone(message));
+    if (env.NODE_ENV !== 'production') developmentOutbox.push(structuredClone(message));
     return { accepted: false, provider: 'disabled', id: null };
   }
 

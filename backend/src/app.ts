@@ -55,11 +55,9 @@ function allowedRequestOrigins(): ReadonlySet<string> {
     }
   }
 
-  // The public storefront can be reached with or without www while Caddy
-  // redirects www to the canonical hostname. Keep both valid during redirect
-  // propagation so authenticated mutations do not fail for real visitors.
-  if (primary === 'https://gundelikbaki.az') origins.add('https://www.gundelikbaki.az');
-  if (primary === 'https://www.gundelikbaki.az') origins.add('https://gundelikbaki.az');
+  // Keep both canonical host variants valid while Nginx redirects www traffic.
+  if (primary === 'https://tvshop.az') origins.add('https://www.tvshop.az');
+  if (primary === 'https://www.tvshop.az') origins.add('https://tvshop.az');
   return origins;
 }
 

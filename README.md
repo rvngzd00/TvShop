@@ -29,7 +29,8 @@ npm run dev
 
 Əsas işlək səhifələr: `/magaza/`, `/mehsul/:slug/`, `/endirimler/`, `/kampaniyalar/`, `/jurnal/`, `/jurnal/:slug/`, `/elanlar/`, `/baki-club/`, `/biznes/` və `/sebet/`. Mağaza, jurnal və elan səhifələri CMS/PostgreSQL məlumatından server tərəfində render olunur; səbət sifariş endpoint-inə bağlıdır.
 
-Frontend ayrıca `npm run dev:frontend` ilə yalnız statik fallback rejimində açıla bilər.
+Frontend ayrıca `npm run dev:frontend` ilə açıla bilər; həmin server `/api/`
+sorğularını real lokal backend-ə ötürür və production məlumat xətalarını mock-la gizlətmir.
 
 ## Video commerce və TV sahəsi
 

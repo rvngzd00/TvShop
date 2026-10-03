@@ -1,13 +1,18 @@
-name: Deploy Daily Baku
+name: Deploy TVShop
 
 on:
   push:
     branches:
       - main
 
+concurrency:
+  group: tvshop-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
       - name: Checkout code
@@ -15,12 +20,12 @@ jobs:
 
       - name: Prepare SSH
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Upload files to VPS
+      - name: Upload TVShop application files
         run: |
           rsync -az --delete \
             --exclude='.git' \
@@ -30,117 +35,138 @@ jobs:
             --exclude='node_modules' \
             --exclude='backend/uploads' \
             --exclude='uploads' \
+            --exclude='compose.yml' \
             --exclude='docker-compose.vps.yml' \
-            --exclude='docker-compose.vps.yml.before-bluegreen' \
+            --exclude='docker-compose.vps.yml.*' \
             -e "ssh -i ~/.ssh/deploy_key" \
-            ./ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_PATH }}/"
+            ./ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/www/tvshop/app/"
 
-      - name: Blue-green deploy
+      - name: Blue-green deploy TVShop
         run: |
-          ssh -i ~/.ssh/deploy_key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOF'
-          set -e
+          ssh -i ~/.ssh/deploy_key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -se' <<'EOF'
+          set -Eeuo pipefail
 
-          cd /var/www/dailybaku/app
+          APP_DIR='/var/www/tvshop/app'
+          NGINX_FILE='/etc/nginx/sites-enabled/tvshop.az'
+          BACKUP_DIR='/var/www/tvshop/backups/deploy'
+          COMPOSE=(docker compose -p tvshop -f docker-compose.vps.yml --env-file .env)
 
-          NGINX_FILE=$(readlink -f /etc/nginx/sites-enabled/gundelikbaki.az)
+          cd "$APP_DIR"
 
-          echo "Detecting current LIVE slot..."
+          test -f .env || { echo 'ERROR: TVShop server .env is missing.'; exit 1; }
+          test -f docker-compose.vps.yml || { echo 'ERROR: TVShop server compose file is missing.'; exit 1; }
+          test -f "$NGINX_FILE" || { echo 'ERROR: TVShop Nginx site is missing.'; exit 1; }
 
-          if sudo grep -q 'proxy_pass http://127.0.0.1:3001;' "$NGINX_FILE"; then
-            LIVE_PORT=3001
-            CANDIDATE_PORT=3002
-            CANDIDATE_SERVICE=app_green
-          elif sudo grep -q 'proxy_pass http://127.0.0.1:3002;' "$NGINX_FILE"; then
-            LIVE_PORT=3002
-            CANDIDATE_PORT=3001
-            CANDIDATE_SERVICE=app
+          if sudo grep -Fq 'proxy_pass http://127.0.0.1:3003;' "$NGINX_FILE"; then
+            LIVE_PORT=3003
+            LIVE_SERVICE='app'
+            CANDIDATE_PORT=3004
+            CANDIDATE_SERVICE='app_green'
+          elif sudo grep -Fq 'proxy_pass http://127.0.0.1:3004;' "$NGINX_FILE"; then
+            LIVE_PORT=3004
+            LIVE_SERVICE='app_green'
+            CANDIDATE_PORT=3003
+            CANDIDATE_SERVICE='app'
           else
-            echo "ERROR: Cannot determine current Daily Baku LIVE port."
+            echo 'ERROR: Cannot determine the current TVShop live slot.'
             exit 1
           fi
 
-          echo "LIVE port: $LIVE_PORT"
+          echo "Live port: $LIVE_PORT"
           echo "Candidate port: $CANDIDATE_PORT"
           echo "Candidate service: $CANDIDATE_SERVICE"
 
-          echo "Creating pre-deploy database backup..."
-          mkdir -p /home/ubuntu/backups/deploy
+          echo 'Creating pre-deploy PostgreSQL backup...'
+          umask 077
+          mkdir -p "$BACKUP_DIR"
+          BACKUP_FILE="$BACKUP_DIR/tvshop-$(date -u +%Y%m%dT%H%M%SZ).dump"
+          docker exec tvshop-postgres-1 pg_dump -U tvshop -d tvshop -Fc > "$BACKUP_FILE"
+          test -s "$BACKUP_FILE" || { echo 'ERROR: PostgreSQL backup is empty.'; exit 1; }
 
-          docker exec app-postgres-1 \
-            pg_dump -U dailybaku -d dailybaku -Fc \
-            > "/home/ubuntu/backups/deploy/dailybaku-$(date +%Y%m%d-%H%M%S).dump"
+          echo 'Building only the non-live candidate...'
+          "${COMPOSE[@]}" build "$CANDIDATE_SERVICE"
+          "${COMPOSE[@]}" up -d --no-deps "$CANDIDATE_SERVICE"
 
-          echo "Building candidate without touching LIVE..."
+          assert_local_binding() {
+            local service="$1"
+            local port="$2"
+            local container
+            local bindings
+            container=$("${COMPOSE[@]}" ps -q "$service")
+            test -n "$container" || { echo "ERROR: $service container is missing."; exit 1; }
+            bindings=$(docker port "$container")
+            if ! printf '%s\n' "$bindings" | grep -Eq "127\\.0\\.0\\.1:${port}$"; then
+              echo "ERROR: $service is not bound to required localhost port $port."
+              printf '%s\n' "$bindings"
+              exit 1
+            fi
+            if printf '%s\n' "$bindings" | grep -Evq "127\\.0\\.0\\.1:${port}$"; then
+              echo "ERROR: $service has a non-localhost port binding."
+              exit 1
+            fi
+          }
 
-          docker compose -f docker-compose.vps.yml --env-file .env \
-            up -d --build --no-deps "$CANDIDATE_SERVICE"
+          assert_local_binding "$LIVE_SERVICE" "$LIVE_PORT"
+          assert_local_binding "$CANDIDATE_SERVICE" "$CANDIDATE_PORT"
 
-          echo "Waiting for candidate to become ready..."
-
+          echo 'Waiting for candidate readiness...'
           READY=0
-
-          for i in $(seq 1 40); do
+          for attempt in $(seq 1 40); do
             if curl -fsS "http://127.0.0.1:${CANDIDATE_PORT}/api/v1/ready" >/dev/null; then
               READY=1
-              echo "Candidate is ready."
               break
             fi
-
-            echo "Attempt $i/40..."
+            echo "Readiness attempt $attempt/40..."
             sleep 3
           done
 
           if [ "$READY" -ne 1 ]; then
-            echo "ERROR: Candidate failed health check."
-            echo "LIVE site remains on port $LIVE_PORT."
-
-            docker compose -f docker-compose.vps.yml \
-              logs "$CANDIDATE_SERVICE" --tail=150 || true
-
+            echo "ERROR: Candidate failed readiness; live traffic remains on $LIVE_PORT."
+            "${COMPOSE[@]}" logs --tail=150 "$CANDIDATE_SERVICE" || true
             exit 1
           fi
 
-          echo "Candidate healthy. Switching Nginx..."
+          restore_live_port() {
+            sudo sed -i \
+              "s#proxy_pass http://127.0.0.1:${CANDIDATE_PORT};#proxy_pass http://127.0.0.1:${LIVE_PORT};#" \
+              "$NGINX_FILE"
+            sudo nginx -t
+            sudo systemctl reload nginx
+          }
 
+          echo 'Switching Nginx to the ready candidate...'
           sudo sed -i \
             "s#proxy_pass http://127.0.0.1:${LIVE_PORT};#proxy_pass http://127.0.0.1:${CANDIDATE_PORT};#" \
             "$NGINX_FILE"
 
+          if ! sudo grep -Fq "proxy_pass http://127.0.0.1:${CANDIDATE_PORT};" "$NGINX_FILE"; then
+            echo 'ERROR: Nginx upstream was not changed; restoring the previous live port.'
+            restore_live_port
+            exit 1
+          fi
+
           if ! sudo nginx -t; then
-            echo "ERROR: Nginx config invalid. Restoring LIVE port."
-
-            sudo sed -i \
-              "s#proxy_pass http://127.0.0.1:${CANDIDATE_PORT};#proxy_pass http://127.0.0.1:${LIVE_PORT};#" \
-              "$NGINX_FILE"
-
+            echo 'ERROR: Nginx validation failed; restoring the previous live port.'
+            restore_live_port
             exit 1
           fi
 
-          sudo systemctl reload nginx
-
-          echo "Checking public site after switch..."
-
-          if ! curl -fsS --resolve gundelikbaki.az:443:127.0.0.1 \
-            https://gundelikbaki.az/api/v1/ready >/dev/null; then
-
-            echo "ERROR: New LIVE version failed after Nginx switch."
-            echo "Rolling Nginx back to port $LIVE_PORT..."
-
-            sudo sed -i \
-              "s#proxy_pass http://127.0.0.1:${CANDIDATE_PORT};#proxy_pass http://127.0.0.1:${LIVE_PORT};#" \
-              "$NGINX_FILE"
-
-            sudo nginx -t
-            sudo systemctl reload nginx
-
+          if ! sudo systemctl reload nginx; then
+            echo 'ERROR: Nginx reload failed; restoring the previous live port.'
+            restore_live_port
             exit 1
           fi
 
-          echo "================================="
-          echo "DEPLOY SUCCESS"
-          echo "New LIVE port: $CANDIDATE_PORT"
-          echo "Old version remains on: $LIVE_PORT"
-          echo "================================="
+          echo 'Verifying TVShop over HTTPS...'
+          if ! curl -fsS --retry 5 --retry-delay 2 --retry-connrefused \
+            --resolve 'tvshop.az:443:127.0.0.1' \
+            'https://tvshop.az/api/v1/ready' >/dev/null; then
+            echo 'ERROR: HTTPS verification failed; restoring the previous live port.'
+            restore_live_port
+            exit 1
+          fi
 
-          docker compose -f docker-compose.vps.yml --env-file .env ps
+          echo "TVShop deploy succeeded on port $CANDIDATE_PORT."
+          echo "Previous version remains available on port $LIVE_PORT."
+          "${COMPOSE[@]}" ps
           EOF
